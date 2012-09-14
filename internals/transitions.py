@@ -86,9 +86,7 @@ class HDPHMMPiRow(object):
                             self.alpha_0*(1.-self.beta[k]
                                 - sum(self.beta[kp] for kp in self._pivec.iterkeys()))))
             except (ZeroDivisionError, FloatingPointError):
-                # purely numericalerror, happens sometimes when np.random.dirichlet
-                # is called with really small arguments. if things get this
-                # small, we might as well truncate
+                # purely numerical error; floatig point is truncating for us!
                 self._pivec[k], self._remaining = self._remaining, 0.
         return self._pivec[k]
 
