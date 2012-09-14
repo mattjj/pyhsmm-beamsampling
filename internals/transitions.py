@@ -1,6 +1,7 @@
 from __future__ import division
 import numpy as np
 
+from pyhsmm.util.general import rle
 from collections import defaultdict
 import itertools, operator
 
@@ -84,7 +85,7 @@ class HDPHMMPiRow(object):
                         (self.alpha_0*self.beta[k],
                             self.alpha_0*(1.-self.beta[k]
                                 - sum(self.beta[kp] for kp in self._pivec.iterkeys()))))
-            except ZeroDivisionError:
+            except (ZeroDivisionError, FloatingPointError):
                 # purely numericalerror, happens sometimes when np.random.dirichlet
                 # is called with really small arguments. if things get this
                 # small, we might as well truncate
@@ -140,6 +141,7 @@ class HDPHSMMPiRow(HDPHMMPiRow):
 
 class HDPHMMBeamTransitions(object):
     def __init__(self,gamma_0,alpha_0):
+        self.alpha_0 = alpha_0
         self.beta = Beta(gamma_0)
         self._set_new_pis()
 
@@ -191,6 +193,7 @@ class HDPHSMMBeamTransitions(HDPHMMBeamTransitions):
         self.pis = {}
 
     def _count_transitions(self,stateseqlist):
+        stateseqlist = map(operator.itemgetter(0),map(rle,stateseqlist))
         counts, idlist = super(HDPHSMMBeamTransitions,self)._count_transitions(stateseqlist)
         for idx,(label,num) in enumerate(zip(idlist,counts.sum(1))):
             assert counts[idx,idx] == 0
