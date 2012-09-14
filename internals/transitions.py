@@ -1,6 +1,5 @@
 from __future__ import division
 import numpy as np
-na = np.newaxis
 
 from collections import defaultdict
 import itertools, operator
@@ -121,7 +120,7 @@ class HDPHSMMPiRow(HDPHMMPiRow):
         weights = np.random.dirichlet(
                 [self.alpha_0*self.beta[k]+n for k,n in countsdict.iteritems()] \
                         + [self.alpha_0*(1-sum(self.beta[k] for k in countsdict)
-                            - self.beta[self.myidx])]) # NOTE: here's the difference
+                            - self.beta[self.myidx])]) # NOTE: here's the difference from parent's resample
         self._pivec = {self.myidx:0.}
         self._pivec.update(zip(countsdict.keys(),weights[:-1]))
         self._remaining = weights[-1]
@@ -136,7 +135,10 @@ class HDPHSMMPiRow(HDPHMMPiRow):
 class HDPHMMBeamTransitions(object):
     def __init__(self,gamma_0,alpha_0):
         self.beta = Beta(gamma_0)
-        self.pis = defaultdict(lambda: HDPHMMPiRow(alpha_0,self.beta))
+        self._set_new_pis()
+
+    def _set_new_pis(self):
+        self.pis = defaultdict(lambda: HDPHMMPiRow(self.alpha_0,self.beta))
 
     def resample(self,stateseqlist):
         # count transitions
@@ -153,9 +155,11 @@ class HDPHMMBeamTransitions(object):
         self.beta.resample({index:count for index, count in zip(idlist,msum) if count > 0})
 
         # resample pis
+        self._set_new_pis()
         for countrow,ilabel in zip(counts,idlist):
-            self.pis[ilabel].resample({jlabel:count for jlabel,count in zip(idlist,countrow)
-                if count > 0})
+            if countrow.sum() > 0:
+                self[ilabel].resample({jlabel:count for jlabel,count in zip(idlist,countrow)
+                    if count > 0})
 
     def _count_transitions(self,stateseqlist):
         id2idx = defaultdict(itertools.count().next)
@@ -177,15 +181,15 @@ class HDPHMMBeamTransitions(object):
 
 
 class HDPHSMMBeamTransitions(HDPHMMBeamTransitions):
-    def __init__(self,gamma_0,alpha_0):
-        self.beta = Beta(gamma_0)
+    def _set_new_pis(self):
         self.pis = {}
 
     def _count_transitions(self,stateseqlist):
         counts, idlist = super(HDPHSMMBeamTransitions,self)._count_transitions(stateseqlist)
         for idx,(label,num) in enumerate(zip(idlist,counts.sum(1))):
             assert counts[idx,idx] == 0
-            counts[idx,idx] = self.pis[idlist].get_aux_counts(num)
+            counts[idx,idx] = self[idlist].get_aux_counts(num)
+        return counts, idlist
 
     def __getitem__(self,v):
         if isinstance(v,int):
