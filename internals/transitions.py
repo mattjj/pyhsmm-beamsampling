@@ -79,10 +79,16 @@ class HDPHMMPiRow(object):
         # with the symbols {1,2,...,K} we have
         # (pi[1],...,pi[K],pi[rest]) ~ Dir(alpha*beta[1],...,alpha*beta[K],alpha*beta[rest])
         if k not in self._pivec:
-            self._pivec[k], self._remaining = self._remaining * np.random.dirichlet(
-                    (self.alpha_0*self.beta[k],
-                        self.alpha_0*(1.-self.beta[k]
-                            - sum(self.beta[kp] for kp in self._pivec.iterkeys()))))
+            try:
+                self._pivec[k], self._remaining = self._remaining * np.random.dirichlet(
+                        (self.alpha_0*self.beta[k],
+                            self.alpha_0*(1.-self.beta[k]
+                                - sum(self.beta[kp] for kp in self._pivec.iterkeys()))))
+            except ZeroDivisionError:
+                # purely numericalerror, happens sometimes when np.random.dirichlet
+                # is called with really small arguments. if things get this
+                # small, we might as well truncate
+                self._pivec[k], self._remaining = self._remaining, 0.
         return self._pivec[k]
 
     def _unused_index(self):
