@@ -137,6 +137,9 @@ class HDPHSMMPiRow(HDPHMMPiRow):
         return np.random.geometric(1-pi_ii,n=num).sum() if num > 0 else 0.
 
 
+# TODO add counts for initial state, these objects should include pi_0 if
+# they're going to encapsulate beta
+
 class HDPHMMBeamTransitions(object):
     def __init__(self,gamma_0,alpha_0):
         self.alpha_0 = alpha_0
