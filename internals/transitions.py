@@ -137,9 +137,6 @@ class HDPHSMMPiRow(HDPHMMPiRow):
         return np.random.geometric(1-pi_ii,n=num).sum() if num > 0 else 0.
 
 
-# TODO add counts for initial state, these objects should include pi_0 if
-# they're going to encapsulate beta
-
 class HDPHMMBeamTransitions(object):
     def __init__(self,gamma_0,alpha_0):
         self.alpha_0 = alpha_0
@@ -148,36 +145,48 @@ class HDPHMMBeamTransitions(object):
 
     def _set_new_pis(self):
         self.pis = defaultdict(lambda: HDPHMMPiRow(self.alpha_0,self.beta))
+        self.pi_0 = HDPHMMPiRow(self.alpha_0,self.beta)
 
     def resample(self,stateseqlist):
         # count transitions
-        counts, idlist = self._count_transitions(stateseqlist)
+        trans_counts, initial_counts, idlist = self._count_transitions(stateseqlist)
 
         # sample m's
-        m = np.zeros(counts.shape)
-        for (i,j), n in np.ndenumerate(counts):
-            m[i,j] = (np.random.randn(n) < self.alpha_0*self.beta[j] \
-                    / (np.arange(n) + self.alpha_0*self.beta[j])).sum()
+        m = np.zeros(trans_counts.shape)
+        for (i,j), n in np.ndenumerate(trans_counts):
+            m[i,j] = (np.random.rand(n) < self.alpha_0*self.beta[idlist[j]] \
+                    / (np.arange(n) + self.alpha_0*self.beta[idlist[j]])).sum()
         msum = m.sum(0)
+
+        for j,n in enumerate(initial_counts):
+            msum[j] += (np.random.rand(n) < self.alpha_0*self.beta[idlist[j]] \
+                    / (np.arange(n) + self.alpha_0 * self.beta[idlist[j]])).sum()
 
         # resample beta
         self.beta.resample({index:count for index, count in zip(idlist,msum) if count > 0})
 
         # resample pis
         self._set_new_pis()
-        for countrow,ilabel in zip(counts,idlist):
+        for countrow,ilabel in zip(trans_counts,idlist):
             if countrow.sum() > 0:
                 self[ilabel].resample({jlabel:count for jlabel,count in zip(idlist,countrow)
+                    if count > 0})
+
+        self.pi_0.resample({jlabel:count for jlabel,count in zip(idlist,initial_counts)
                     if count > 0})
 
     def _count_transitions(self,stateseqlist):
         id2idx = defaultdict(itertools.count().next)
         numstates = len(reduce(set.union,[set(s) for s in stateseqlist]))
-        counts = np.zeros((numstates,numstates))
+        trans_counts = np.zeros((numstates,numstates))
+        initial_counts = np.zeros(numstates)
         for s in stateseqlist:
             for id1,id2 in zip(s[:-1],s[1:]):
-                counts[id2idx[id1],id2idx[id2]] += 1
-        return counts, map(operator.itemgetter(0),sorted(id2idx.items(),key=operator.itemgetter(1)))
+                trans_counts[id2idx[id1],id2idx[id2]] += 1
+            initial_counts[id2idx[s[0]]] += 1
+
+        return trans_counts, initial_counts, \
+                map(operator.itemgetter(0),sorted(id2idx.items(),key=operator.itemgetter(1)))
 
     def __getitem__(self,v):
         if isinstance(v,int):
@@ -192,14 +201,15 @@ class HDPHMMBeamTransitions(object):
 class HDPHSMMBeamTransitions(HDPHMMBeamTransitions):
     def _set_new_pis(self):
         self.pis = {}
+        self.pi_0 = HDPHMMPiRow(self.alpha_0,self.beta)
 
     def _count_transitions(self,stateseqlist):
         stateseqlist = map(operator.itemgetter(0),map(rle,stateseqlist))
-        counts, idlist = super(HDPHSMMBeamTransitions,self)._count_transitions(stateseqlist)
-        for idx,(label,num) in enumerate(zip(idlist,counts.sum(1))):
-            assert counts[idx,idx] == 0
-            counts[idx,idx] = self[idlist].get_aux_counts(num)
-        return counts, idlist
+        trans_counts, initial_counts, idlist = super(HDPHSMMBeamTransitions,self)._count_transitions(stateseqlist)
+        for idx,(label,num) in enumerate(zip(idlist,trans_counts.sum(1))):
+            assert trans_counts[idx,idx] == 0
+            trans_counts[idx,idx] = self[idlist].get_aux_counts(num)
+        return trans_counts, initial_counts, idlist
 
     def __getitem__(self,v):
         if isinstance(v,int):

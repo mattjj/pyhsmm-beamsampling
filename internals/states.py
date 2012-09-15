@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 
-from pyhsmm.util.general import irle
+# from pyhsmm.util.general import irle
 from pyhsmm.util.stats import sample_discrete_from_log
 
 class HMMBeamStates(object):
