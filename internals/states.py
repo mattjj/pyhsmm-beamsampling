@@ -12,8 +12,10 @@ class HMMBeamStates(object):
 
         if stateseq is None:
             assert T is not None
+            self.T = T
             self.generate_states(T)
         else:
+            self.T = len(stateseq)
             self.stateseq = stateseq
 
     def generate_states(self,T):
