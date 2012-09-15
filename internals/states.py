@@ -4,7 +4,7 @@ import numpy as np
 # from pyhsmm.util.general import irle
 from pyhsmm.util.stats import sample_discrete_from_log
 
-class HMMBeamStates(object):
+class HDPHMMBeamStates(object):
     def __init__(self,A,obs_distns,stateseq=None,T=None):
         self.A = A
         self.pi_0 = self.A.pi_0
@@ -79,7 +79,7 @@ class HMMBeamStates(object):
         self.stateseq = stateseq
 
 
-class HSMMBeamStates(HMMBeamStates):
+class HDPHSMMBeamStates(HDPHMMBeamStates):
     def __init__(self):
         raise NotImplementedError
 
